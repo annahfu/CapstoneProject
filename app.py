@@ -1,153 +1,242 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+"""
+Gradio interface for NYC Places Recommendation System.
+Deployable to HuggingFace Spaces.
+"""
+import gradio as gr
+import pandas as pd
 from recommendation_engine import NYCRecommendationEngine
-import os
 
-app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend access
-
-# Initialize recommendation engine
-print("Initializing recommendation engine...")
+# Initialize the recommendation engine
+print("Loading recommendation engine...")
 engine = NYCRecommendationEngine()
 print("Engine ready!")
 
-
-@app.route('/')
-def home():
-    """Health check endpoint."""
-    return jsonify({
-        'status': 'online',
-        'message': 'NYC Places Recommendation API',
-        'version': '1.0.0'
-    })
+# Get available categories from the dataset
+available_categories = sorted(engine.places_df['Category'].dropna().unique().tolist())
 
 
-@app.route('/api/recommendations', methods=['POST'])
-def get_recommendations():
+def get_recommendations(
+    neighborhood,
+    activities,
+    atmosphere,
+    music_genres,
+    activity_type,
+    drinks,
+    price_tier,
+    category,
+    solo_friendly,
+    group_friendly,
+    num_recommendations
+):
     """
-    Get place recommendations based on user preferences.
-
-    Expected JSON body:
-    {
-        "preferred_neighborhood": "Manhattan",
-        "activities": "Eating, Museums",
-        "dining_preferences": "Fine Dining, Rooftop",
-        "atmosphere": "Lively & Social",
-        "music_genres": "Hip-Hop, Jazz",
-        "activity_type": "Both",
-        "drinks": true,
-        "price_tier": "$$" or ["$$", "$$$"],
-        "max_price_tier": "$$",
-        "solo_friendly": true,
-        "group_friendly": true,
-        "category": "Cafe" or ["Cafe", "Entertainment"],
-        "top_n": 10
-    }
+    Generate recommendations based on user inputs.
     """
+    # Build user profile
+    user_data = {}
+
+    if neighborhood and neighborhood != "Any":
+        user_data['preferred_neighborhood'] = neighborhood
+
+    if activities:
+        user_data['activities'] = activities
+
+    if atmosphere and atmosphere != "Any":
+        user_data['atmosphere'] = atmosphere
+
+    if music_genres:
+        user_data['music_genres'] = music_genres
+
+    if activity_type and activity_type != "Any":
+        user_data['activity_type'] = activity_type
+
+    user_data['drinks'] = drinks
+
+    # Apply filters
+    if price_tier and price_tier != "Any":
+        user_data['max_price_tier'] = price_tier
+
+    if category and category != "Any":
+        user_data['category'] = category
+
+    if solo_friendly:
+        user_data['solo_friendly'] = True
+
+    if group_friendly:
+        user_data['group_friendly'] = True
+
+    # Get recommendations
     try:
-        data = request.get_json()
+        recommendations = engine.get_recommendations(user_data, top_n=int(num_recommendations))
 
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
+        if len(recommendations) == 0:
+            return "No places found matching your criteria. Try relaxing some filters.", ""
 
-        # Get number of recommendations (default 10)
-        top_n = data.pop('top_n', 10)
+        # Format results as a nice table
+        results_df = recommendations[[
+            'Name_of_place', 'Type', 'Category', 'Neighborhood',
+            'price_tier', 'Vibe_Type', 'similarity_score'
+        ]].copy()
 
-        # Get recommendations
-        recommendations = engine.get_recommendations(data, top_n=top_n)
+        results_df.columns = ['Name', 'Type', 'Category', 'Neighborhood', 'Price', 'Vibe', 'Match Score']
+        results_df['Match Score'] = results_df['Match Score'].apply(lambda x: f"{x:.1%}")
 
-        # Convert to JSON-friendly format
-        result = recommendations.to_dict('records')
+        # Create detailed view
+        details = []
+        for idx, row in recommendations.iterrows():
+            details.append(f"""
+### {row['Name_of_place']}
+- **Type:** {row['Type']}
+- **Category:** {row['Category']}
+- **Neighborhood:** {row['Neighborhood']}
+- **Address:** {row['Address']}
+- **Vibe:** {row['Vibe_Type']}
+- **Price:** {row['price_tier'] if pd.notna(row['price_tier']) else 'N/A'} ({row['Price_Level']})
+- **Match Score:** {row['similarity_score']:.1%}
 
-        return jsonify({
-            'success': True,
-            'count': len(result),
-            'recommendations': result
-        })
+---
+""")
+
+        return results_df, "\n".join(details)
 
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return f"Error: {str(e)}", ""
 
 
-@app.route('/api/user/<user_id>/recommendations', methods=['GET'])
-def get_user_recommendations(user_id):
-    """Get recommendations for an existing user from the database."""
-    try:
-        # Get user data
-        user_data = engine.get_user_by_id(user_id)
+# Create Gradio interface
+with gr.Blocks(title="NYC Places Recommendation System", theme=gr.themes.Soft()) as demo:
+    gr.Markdown("""
+    # 🗽 NYC Places Recommendation System
 
-        if not user_data:
-            return jsonify({'error': 'User not found'}), 404
+    Get personalized recommendations for places to visit in New York City based on your preferences!
 
-        # Get recommendations
-        top_n = request.args.get('top_n', default=10, type=int)
-        recommendations = engine.get_recommendations(user_data, top_n=top_n)
+    Powered by HuggingFace Transformers 🤖
+    """)
 
-        # Convert to JSON
-        result = recommendations.to_dict('records')
+    with gr.Row():
+        with gr.Column():
+            gr.Markdown("### Your Preferences")
 
-        return jsonify({
-            'success': True,
-            'user': user_data['name'],
-            'count': len(result),
-            'recommendations': result
-        })
+            neighborhood = gr.Dropdown(
+                choices=["Any", "Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island",
+                        "SoHo", "West Village", "East Village", "Lower East Side",
+                        "Upper West Side", "Upper East Side", "Midtown", "Williamsburg",
+                        "Fort Greene", "Park Slope", "Brooklyn Heights", "Astoria"],
+                label="Preferred Neighborhood",
+                value="Any"
+            )
 
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+            activities = gr.Textbox(
+                label="Favorite Activities",
+                placeholder="e.g., Eating, Museums, Art Galleries, Dancing",
+                info="Separate multiple activities with commas"
+            )
+
+            atmosphere = gr.Dropdown(
+                choices=["Any", "Lively & Social", "Quiet & Relaxed", "Casual",
+                        "Upscale", "Energetic", "Artistic"],
+                label="Preferred Atmosphere",
+                value="Any"
+            )
+
+            music_genres = gr.Textbox(
+                label="Music Preferences (Optional)",
+                placeholder="e.g., Hip-Hop, Jazz, R&B, House",
+                info="Separate multiple genres with commas"
+            )
+
+            activity_type = gr.Radio(
+                choices=["Any", "Solo", "Group", "Both"],
+                label="Activity Type",
+                value="Any"
+            )
+
+            drinks = gr.Checkbox(
+                label="Interested in places that serve alcohol",
+                value=False
+            )
+
+        with gr.Column():
+            gr.Markdown("### Filters")
+
+            price_tier = gr.Radio(
+                choices=["Any", "$", "$$", "$$$", "$$$$"],
+                label="Maximum Price Tier",
+                value="Any",
+                info="$ = Under $15, $$ = $15-40, $$$ = $41-80, $$$$ = Over $80"
+            )
+
+            category = gr.Dropdown(
+                choices=["Any"] + available_categories,
+                label="Category",
+                value="Any"
+            )
+
+            solo_friendly = gr.Checkbox(
+                label="Solo Friendly Only",
+                value=False
+            )
+
+            group_friendly = gr.Checkbox(
+                label="Group Friendly Only",
+                value=False
+            )
+
+            num_recommendations = gr.Slider(
+                minimum=1,
+                maximum=20,
+                value=5,
+                step=1,
+                label="Number of Recommendations"
+            )
+
+            submit_btn = gr.Button("Get Recommendations", variant="primary", size="lg")
+
+    gr.Markdown("### Your Recommendations")
+
+    with gr.Row():
+        results_table = gr.Dataframe(
+            label="Quick View",
+            wrap=True
+        )
+
+    with gr.Row():
+        results_details = gr.Markdown(label="Detailed View")
+
+    # Examples
+    gr.Markdown("### Try These Examples")
+    gr.Examples(
+        examples=[
+            ["Manhattan", "Eating, Fine Dining", "Lively & Social", "Hip-Hop, R&B", "Both", True, "$$", "Food", False, False, 5],
+            ["Brooklyn", "Coffee, Reading, Working", "Quiet & Relaxed", "", "Solo", False, "$", "Cafe", True, False, 5],
+            ["Manhattan", "Art, Galleries", "Quiet & Relaxed", "", "Solo", False, "$", "Gallery", True, False, 5],
+            ["Brooklyn", "Dancing, Music", "Energetic", "House, Hip-Hop", "Group", True, "$$", "Night Life", False, True, 5],
+            ["Manhattan", "Museums, Culture", "Quiet & Relaxed", "", "Both", False, "$$", "Museum", False, False, 5],
+        ],
+        inputs=[neighborhood, activities, atmosphere, music_genres, activity_type,
+                drinks, price_tier, category, solo_friendly, group_friendly, num_recommendations],
+    )
+
+    # Connect button
+    submit_btn.click(
+        fn=get_recommendations,
+        inputs=[neighborhood, activities, atmosphere, music_genres, activity_type,
+                drinks, price_tier, category, solo_friendly, group_friendly, num_recommendations],
+        outputs=[results_table, results_details]
+    )
+
+    gr.Markdown("""
+    ---
+    ### About
+
+    This recommendation system uses **HuggingFace sentence-transformers** to match your preferences
+    with 139 curated NYC locations. It analyzes semantic similarity between your preferences and
+    place characteristics to provide personalized recommendations.
+
+    **Tech Stack:** Python, HuggingFace Transformers, Gradio, Pandas, scikit-learn
+
+    [GitHub Repository](https://github.com/ravencheneg/CapstoneProject)
+    """)
 
 
-@app.route('/api/places', methods=['GET'])
-def get_all_places():
-    """Get all places in the database."""
-    try:
-        places = engine.places_df[[
-            'Place_ID', 'Name_of_place', 'Type', 'Category',
-            'Neighborhood', 'Vibe_Type', 'Price_Level'
-        ]].to_dict('records')
-
-        return jsonify({
-            'success': True,
-            'count': len(places),
-            'places': places
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/places/<int:place_id>', methods=['GET'])
-def get_place_details(place_id):
-    """Get details for a specific place."""
-    try:
-        place = engine.places_df[engine.places_df['Place_ID'] == place_id]
-
-        if place.empty:
-            return jsonify({'error': 'Place not found'}), 404
-
-        result = place.to_dict('records')[0]
-
-        return jsonify({
-            'success': True,
-            'place': result
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+if __name__ == "__main__":
+    demo.launch()
