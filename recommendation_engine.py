@@ -133,44 +133,32 @@ class NYCRecommendationEngine:
         return texts
 
     def _create_user_profile(self, user_data):
-        """Create a textual representation of user preferences."""
+        """
+        Create a textual representation of user preferences for semantic matching.
+        Note: Filtered fields (neighborhood, atmosphere, category, price) are NOT
+        included here since they are applied as strict filters, not semantic preferences.
+        """
         parts = []
 
-        # Preferred neighborhood
-        if 'preferred_neighborhood' in user_data and user_data['preferred_neighborhood']:
-            parts.append(f"Prefers {user_data['preferred_neighborhood']}")
-
-        # Activities
+        # Activities (semantic preference, not a filter)
         if 'activities' in user_data and user_data['activities']:
             parts.append(f"Enjoys {user_data['activities']}")
 
-        # Dining preferences
+        # Dining preferences (semantic preference)
         if 'dining_preferences' in user_data and user_data['dining_preferences']:
             parts.append(f"Dining: {user_data['dining_preferences']}")
 
-        # Atmosphere - EMPHASIZE by adding multiple times for better matching
-        if 'atmosphere' in user_data and user_data['atmosphere']:
-            atmo = user_data['atmosphere']
-            parts.append(f"Atmosphere: {atmo}")
-            parts.append(f"Vibe: {atmo}")
-            parts.append(f"Prefers {atmo} environment")
-
-        # Music preferences
+        # Music preferences (semantic preference)
         if 'music_genres' in user_data and user_data['music_genres']:
             parts.append(f"Music: {user_data['music_genres']}")
 
-        # Solo or group
-        if 'activity_type' in user_data:
-            if user_data['activity_type'] == 'Solo':
-                parts.append("Solo friendly")
-            elif user_data['activity_type'] == 'Group':
-                parts.append("Group friendly")
-            else:
-                parts.append("Solo and group friendly")
-
-        # Drinking/smoking
+        # Drinking/smoking (semantic preference)
         if user_data.get('drinks', False):
             parts.append("Serves alcohol")
+
+        # If no semantic preferences provided, use a generic profile
+        if not parts:
+            parts.append("Looking for interesting places")
 
         return '. '.join(parts)
 
@@ -178,95 +166,124 @@ class NYCRecommendationEngine:
         """
         Get top N recommendations for a user based on their profile.
 
+        All selections work as STRICT FILTERS - results will only include places
+        that match ALL specified criteria. Semantic matching is used only for ranking
+        within the filtered results.
+
         Args:
-            user_data (dict): Dictionary containing user preferences
+            user_data (dict): Dictionary containing user preferences and filters
             top_n (int): Number of recommendations to return
 
         Returns:
             pd.DataFrame: Top recommended places with similarity scores
         """
-        # Create user profile text
+        # Start with all places (ensure price_tier column exists)
+        results = self.places_df.copy()
+
+        # Ensure price_tier column exists (should be set in process_data)
+        if 'price_tier' not in results.columns:
+            results['price_tier'] = results['Price_Symbol']
+
+        # ========== APPLY ALL STRICT FILTERS FIRST ==========
+
+        # Filter by Neighborhood (STRICT)
+        if 'preferred_neighborhood' in user_data and user_data['preferred_neighborhood']:
+            neighborhood = user_data['preferred_neighborhood']
+            results = results[results['Neighborhood'] == neighborhood]
+
+        # Filter by Category (STRICT)
+        if 'category' in user_data and user_data['category'] is not None:
+            category = user_data['category']
+            if isinstance(category, str):
+                results = results[results['Category'] == category]
+            elif isinstance(category, list):
+                results = results[results['Category'].isin(category)]
+
+        # Filter by Atmosphere/Vibe (STRICT - partial matching)
+        if 'atmosphere' in user_data and user_data['atmosphere']:
+            atmo = user_data['atmosphere'].lower()
+            key_words = [word.strip() for word in atmo.replace('&', ' ').split()
+                        if len(word.strip()) > 2]
+
+            if key_words:
+                def matches_atmosphere(vibe_type):
+                    if pd.isna(vibe_type):
+                        return False
+                    vibe_lower = str(vibe_type).lower()
+                    return any(word in vibe_lower for word in key_words)
+
+                results = results[results['Vibe_Type'].apply(matches_atmosphere)]
+
+        # Filter by Price Tier (STRICT)
+        if 'price_tier' in user_data and user_data['price_tier'] is not None:
+            price_tier = user_data['price_tier']
+            if isinstance(price_tier, str):
+                results = results[results['price_tier'] == price_tier]
+            elif isinstance(price_tier, list):
+                results = results[results['price_tier'].isin(price_tier)]
+
+        if 'max_price_tier' in user_data and user_data['max_price_tier'] is not None:
+            if len(results) > 0:  # Only filter if we have results
+                tier_order = ["$", "$$", "$$$", "$$$$"]
+                max_tier = user_data['max_price_tier']
+                if max_tier in tier_order:
+                    max_index = tier_order.index(max_tier)
+                    allowed_tiers = tier_order[:max_index + 1]
+                    results = results[results['price_tier'].isin(allowed_tiers)]
+
+        # Filter by Activity Type (STRICT)
+        if 'activity_type' in user_data and user_data['activity_type']:
+            activity_type = user_data['activity_type']
+            if activity_type == 'Solo':
+                results = results[results['Solo_Friendly'] == 'Yes']
+            elif activity_type == 'Group':
+                results = results[results['Group_Friendly'] == 'Yes']
+            elif activity_type == 'Both':
+                # Must be friendly for BOTH solo and group
+                results = results[(results['Solo_Friendly'] == 'Yes') &
+                                (results['Group_Friendly'] == 'Yes')]
+
+        # Additional solo/group filters (for backwards compatibility)
+        if 'solo_friendly' in user_data and user_data['solo_friendly'] is True:
+            results = results[results['Solo_Friendly'] == 'Yes']
+
+        if 'group_friendly' in user_data and user_data['group_friendly'] is True:
+            results = results[results['Group_Friendly'] == 'Yes']
+
+        # Filter by Alcohol availability (STRICT)
+        if 'drinks' in user_data and user_data['drinks'] is True:
+            results = results[results['Has_Alcohol'] == 'Yes']
+
+        # ========== APPLY SEMANTIC MATCHING FOR RANKING ==========
+
+        # Create user profile text from remaining semantic preferences
         user_profile_text = self._create_user_profile(user_data)
 
         # Generate embedding for user profile
         user_embedding = self.model.encode([user_profile_text])
 
-        # Calculate cosine similarity between user and all places
-        similarities = cosine_similarity(user_embedding, self.place_embeddings)[0]
+        # Calculate cosine similarity only for filtered results
+        if len(results) > 0:
+            # Get embeddings for filtered places
+            filtered_indices = results.index.tolist()
+            filtered_embeddings = self.place_embeddings[filtered_indices]
 
-        # Add similarity scores to dataframe
-        results = self.places_df.copy()
-        results['similarity_score'] = similarities
-
-        # Apply price tier filter if specified
-        if 'price_tier' in user_data and user_data['price_tier'] is not None:
-            # Filter by price tier(s)
-            # User can specify single tier like "$" or multiple like ["$", "$$"]
-            price_tier = user_data['price_tier']
-
-            if isinstance(price_tier, str):
-                # Single tier specified - STRICT filtering (no null values)
-                results = results[results['price_tier'] == price_tier]
-            elif isinstance(price_tier, list):
-                # Multiple tiers specified - STRICT filtering (no null values)
-                results = results[results['price_tier'].isin(price_tier)]
-
-        if 'max_price_tier' in user_data and user_data['max_price_tier'] is not None:
-            # Filter by maximum price tier
-            # E.g., "$$" means include only "$" and "$$"
-            tier_order = ["$", "$$", "$$$", "$$$$"]
-            max_tier = user_data['max_price_tier']
-
-            if max_tier in tier_order:
-                max_index = tier_order.index(max_tier)
-                allowed_tiers = tier_order[:max_index + 1]
-                # STRICT filtering - only show places with known prices in allowed tiers
-                results = results[results['price_tier'].isin(allowed_tiers)]
-
-        # Apply Solo/Group Friendly filter
-        if 'solo_friendly' in user_data and user_data['solo_friendly'] is True:
-            # Filter for solo-friendly places only
-            results = results[results['Solo_Friendly'] == 'Yes']
-
-        if 'group_friendly' in user_data and user_data['group_friendly'] is True:
-            # Filter for group-friendly places only
-            results = results[results['Group_Friendly'] == 'Yes']
-
-        # Apply Category filter
-        if 'category' in user_data and user_data['category'] is not None:
-            # Filter by category or list of categories
-            category = user_data['category']
-
-            if isinstance(category, str):
-                # Single category specified
-                results = results[results['Category'] == category]
-            elif isinstance(category, list):
-                # Multiple categories specified
-                results = results[results['Category'].isin(category)]
-
-        # Apply Atmosphere/Vibe filter (partial matching)
-        # Filter if atmosphere is provided and not empty/None
-        if 'atmosphere' in user_data and user_data['atmosphere']:
-            atmo = user_data['atmosphere'].lower()
-
-            # Extract key words from user preference
-            # e.g., "Lively & Social" -> ["lively", "social"]
-            key_words = [word.strip() for word in atmo.replace('&', ' ').split()
-                        if len(word.strip()) > 2]
-
-            if key_words:
-                # Keep only places where vibe contains at least one key word
-                def matches_atmosphere(vibe_type):
-                    if pd.isna(vibe_type):
-                        return False
-                    vibe_lower = str(vibe_type).lower()
-                    # Match if ANY key word is found in the vibe
-                    return any(word in vibe_lower for word in key_words)
-
-                results = results[results['Vibe_Type'].apply(matches_atmosphere)]
+            # Calculate similarities
+            similarities = cosine_similarity(user_embedding, filtered_embeddings)[0]
+            results['similarity_score'] = similarities
+        else:
+            # No results after filtering
+            results['similarity_score'] = []
 
         # Sort by similarity and return top N
-        recommendations = results.nlargest(top_n, 'similarity_score')
+        if len(results) == 0:
+            # Return empty dataframe with correct columns
+            return pd.DataFrame(columns=[
+                'Name_of_place', 'Type', 'Category', 'Neighborhood',
+                'Address', 'Vibe_Type', 'price_tier', 'Price_Level', 'similarity_score'
+            ])
+
+        recommendations = results.nlargest(min(top_n, len(results)), 'similarity_score')
 
         return recommendations[[
             'Name_of_place', 'Type', 'Category', 'Neighborhood',

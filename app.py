@@ -17,52 +17,47 @@ available_categories = sorted(engine.places_df['Category'].dropna().unique().tol
 
 def get_recommendations(
     neighborhood,
-    activities,
+    category,
     atmosphere,
-    music_genres,
+    price_tier,
     activity_type,
     drinks,
-    price_tier,
-    category,
-    solo_friendly,
-    group_friendly,
+    activities,
+    music_genres,
     num_recommendations
 ):
     """
     Generate recommendations based on user inputs.
+    All selections work as STRICT FILTERS - only places matching ALL criteria will be shown.
     """
-    # Build user profile
+    # Build user data with all filters
     user_data = {}
 
+    # All of these are now strict filters
     if neighborhood and neighborhood != "Any":
         user_data['preferred_neighborhood'] = neighborhood
-
-    if activities:
-        user_data['activities'] = activities
-
-    if atmosphere and atmosphere != "Any":
-        user_data['atmosphere'] = atmosphere
-
-    if music_genres:
-        user_data['music_genres'] = music_genres
-
-    if activity_type and activity_type != "Any":
-        user_data['activity_type'] = activity_type
-
-    user_data['drinks'] = drinks
-
-    # Apply filters
-    if price_tier and price_tier != "Any":
-        user_data['max_price_tier'] = price_tier
 
     if category and category != "Any":
         user_data['category'] = category
 
-    if solo_friendly:
-        user_data['solo_friendly'] = True
+    if atmosphere and atmosphere != "Any":
+        user_data['atmosphere'] = atmosphere
 
-    if group_friendly:
-        user_data['group_friendly'] = True
+    if price_tier and price_tier != "Any":
+        user_data['max_price_tier'] = price_tier
+
+    if activity_type and activity_type != "Any":
+        user_data['activity_type'] = activity_type
+
+    if drinks:
+        user_data['drinks'] = True
+
+    # These are for semantic ranking (not strict filters)
+    if activities:
+        user_data['activities'] = activities
+
+    if music_genres:
+        user_data['music_genres'] = music_genres
 
     # Get recommendations
     try:
@@ -114,71 +109,65 @@ with gr.Blocks(title="NYC Places Recommendation System", theme=gr.themes.Soft())
 
     with gr.Row():
         with gr.Column():
-            gr.Markdown("### Your Preferences")
+            gr.Markdown("### Filter Places")
 
             neighborhood = gr.Dropdown(
                 choices=["Any", "Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island",
                         "SoHo", "West Village", "East Village", "Lower East Side",
                         "Upper West Side", "Upper East Side", "Midtown", "Williamsburg",
                         "Fort Greene", "Park Slope", "Brooklyn Heights", "Astoria"],
-                label="Preferred Neighborhood",
-                value="Any"
-            )
-
-            activities = gr.Textbox(
-                label="Favorite Activities",
-                placeholder="e.g., Eating, Museums, Art Galleries, Dancing",
-                info="Separate multiple activities with commas"
-            )
-
-            atmosphere = gr.Dropdown(
-                choices=["Any", "Lively & Social", "Quiet & Relaxed", "Casual",
-                        "Upscale", "Energetic", "Artistic"],
-                label="Preferred Atmosphere",
-                value="Any"
-            )
-
-            music_genres = gr.Textbox(
-                label="Music Preferences (Optional)",
-                placeholder="e.g., Hip-Hop, Jazz, R&B, House",
-                info="Separate multiple genres with commas"
-            )
-
-            activity_type = gr.Radio(
-                choices=["Any", "Solo", "Group", "Both"],
-                label="Activity Type",
-                value="Any"
-            )
-
-            drinks = gr.Checkbox(
-                label="Interested in places that serve alcohol",
-                value=False
-            )
-
-        with gr.Column():
-            gr.Markdown("### Filters")
-
-            price_tier = gr.Radio(
-                choices=["Any", "$", "$$", "$$$", "$$$$"],
-                label="Maximum Price Tier",
+                label="Neighborhood",
                 value="Any",
-                info="$ = Under $15, $$ = $15-40, $$$ = $41-80, $$$$ = Over $80"
+                info="Only show places in this neighborhood"
             )
 
             category = gr.Dropdown(
                 choices=["Any"] + available_categories,
                 label="Category",
-                value="Any"
+                value="Any",
+                info="Only show places in this category"
             )
 
-            solo_friendly = gr.Checkbox(
-                label="Solo Friendly Only",
+            atmosphere = gr.Dropdown(
+                choices=["Any", "Lively & Social", "Quiet & Relaxed", "Casual",
+                        "Upscale", "Energetic", "Artistic"],
+                label="Atmosphere/Vibe",
+                value="Any",
+                info="Only show places with this vibe"
+            )
+
+            price_tier = gr.Radio(
+                choices=["Any", "$", "$$", "$$$", "$$$$"],
+                label="Maximum Price",
+                value="Any",
+                info="$ = Under $15, $$ = $15-40, $$$ = $41-80, $$$$ = Over $80"
+            )
+
+        with gr.Column():
+            gr.Markdown("### Additional Filters")
+
+            activity_type = gr.Radio(
+                choices=["Any", "Solo", "Group", "Both"],
+                label="Activity Type",
+                value="Any",
+                info="Solo = solo-friendly only, Group = group-friendly only"
+            )
+
+            drinks = gr.Checkbox(
+                label="Must serve alcohol",
                 value=False
             )
 
-            group_friendly = gr.Checkbox(
-                label="Group Friendly Only",
-                value=False
+            activities = gr.Textbox(
+                label="Activities (Optional)",
+                placeholder="e.g., Eating, Museums, Art Galleries, Dancing",
+                info="Used for ranking results"
+            )
+
+            music_genres = gr.Textbox(
+                label="Music Preferences (Optional)",
+                placeholder="e.g., Hip-Hop, Jazz, R&B, House",
+                info="Used for ranking results"
             )
 
             num_recommendations = gr.Slider(
@@ -186,7 +175,7 @@ with gr.Blocks(title="NYC Places Recommendation System", theme=gr.themes.Soft())
                 maximum=20,
                 value=5,
                 step=1,
-                label="Number of Recommendations"
+                label="Number of Results"
             )
 
             submit_btn = gr.Button("Get Recommendations", variant="primary", size="lg")
@@ -206,21 +195,21 @@ with gr.Blocks(title="NYC Places Recommendation System", theme=gr.themes.Soft())
     gr.Markdown("### Try These Examples")
     gr.Examples(
         examples=[
-            ["Manhattan", "Eating, Fine Dining", "Lively & Social", "Hip-Hop, R&B", "Both", True, "$$", "Food", False, False, 5],
-            ["Brooklyn", "Coffee, Reading, Working", "Quiet & Relaxed", "", "Solo", False, "$", "Cafe", True, False, 5],
-            ["Manhattan", "Art, Galleries", "Quiet & Relaxed", "", "Solo", False, "$", "Gallery", True, False, 5],
-            ["Brooklyn", "Dancing, Music", "Energetic", "House, Hip-Hop", "Group", True, "$$", "Night Life", False, True, 5],
-            ["Manhattan", "Museums, Culture", "Quiet & Relaxed", "", "Both", False, "$$", "Museum", False, False, 5],
+            ["Manhattan", "Food", "Lively & Social", "$$", "Both", True, "Eating, Fine Dining", "Hip-Hop, R&B", 5],
+            ["Brooklyn", "Cafe", "Quiet & Relaxed", "$", "Solo", False, "Coffee, Reading, Working", "", 5],
+            ["Upper East Side", "Any", "Upscale", "$$$", "Any", False, "Fine Dining", "", 5],
+            ["Brooklyn", "Night Life", "Energetic", "$$", "Group", True, "Dancing, Music", "House, Hip-Hop", 5],
+            ["Manhattan", "Museum", "Quiet & Relaxed", "$$", "Both", False, "Museums, Culture", "", 5],
         ],
-        inputs=[neighborhood, activities, atmosphere, music_genres, activity_type,
-                drinks, price_tier, category, solo_friendly, group_friendly, num_recommendations],
+        inputs=[neighborhood, category, atmosphere, price_tier, activity_type,
+                drinks, activities, music_genres, num_recommendations],
     )
 
     # Connect button
     submit_btn.click(
         fn=get_recommendations,
-        inputs=[neighborhood, activities, atmosphere, music_genres, activity_type,
-                drinks, price_tier, category, solo_friendly, group_friendly, num_recommendations],
+        inputs=[neighborhood, category, atmosphere, price_tier, activity_type,
+                drinks, activities, music_genres, num_recommendations],
         outputs=[results_table, results_details]
     )
 
@@ -228,10 +217,15 @@ with gr.Blocks(title="NYC Places Recommendation System", theme=gr.themes.Soft())
     ---
     ### About
 
-    This recommendation system uses **HuggingFace sentence-transformers** to match your preferences
-    with 139 curated NYC locations. It analyzes semantic similarity between your preferences and
-    place characteristics to provide personalized recommendations.
+    This recommendation system uses **strict filtering** combined with **AI-powered semantic ranking**.
 
+    **How it works:**
+    1. **Filter**: Only places matching ALL your selected criteria are shown
+    2. **Rank**: Results are ranked using HuggingFace sentence-transformers based on your activity/music preferences
+
+    **Example:** Selecting "Upper East Side" + "Upscale" will ONLY show upscale places in the Upper East Side.
+
+    **Data:** 139 curated NYC locations
     **Tech Stack:** Python, HuggingFace Transformers, Gradio, Pandas, scikit-learn
 
     [GitHub Repository](https://github.com/ravencheneg/CapstoneProject)
