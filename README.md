@@ -1,3 +1,14 @@
+---
+title: NYC Places Recommendation
+emoji: 🗽
+colorFrom: blue
+colorTo: purple
+sdk: gradio
+sdk_version: 4.19.2
+app_file: app.py
+pinned: false
+---
+
 # NYC Places Recommendation System
 
 A recommendation engine that suggests NYC places to visit based on user interests and demographics, powered by HuggingFace transformers.
