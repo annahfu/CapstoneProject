@@ -16,12 +16,13 @@ A recommendation engine that suggests NYC places to visit based on user interest
 ## Features
 
 - 🤖 Uses HuggingFace `sentence-transformers` for semantic similarity matching
-- 🎯 Intelligent matching of user preferences with place characteristics
-- 🚀 Interactive Gradio web interface + RESTful API
+- 🎯 **Strict filtering** - all selections work as hard filters, not preferences
+- 🚀 Interactive Gradio web interface
 - 💾 SQLite database for portable, embedded data storage
 - 💰 Price tier filtering system ($, $$, $$$, $$$$)
 - 🏷️ Category-based filtering (Cafe, Food, Entertainment, Museums, etc.)
 - 👤 Solo/Group friendly filtering
+- 🌆 Neighborhood filtering - only show places in selected area
 - 📊 139 curated NYC locations across all boroughs
 
 ## Setup
@@ -45,84 +46,41 @@ python create_database.py
 
 ### 3. Run the Application
 
-**Gradio Web Interface** (recommended):
+**Gradio Web Interface**:
 ```bash
 python app.py
 ```
 Then open your browser to the URL shown (usually `http://127.0.0.1:7860`)
 
-**Flask REST API** (for developers):
-```bash
-python flask_api.py
-```
-The API server will start at `http://localhost:5000`
+**Or visit the deployed app**: [NYC Places Recommendation on HuggingFace](https://huggingface.co/spaces/ravencheneg/NYC-places-recommendation)
 
-## API Endpoints
+## How It Works
 
-### Get Recommendations
+### Strict Filtering (Step 1)
+All user selections work as **strict filters** - only places matching ALL criteria are shown:
 
-**POST** `/api/recommendations`
-
-Request body with all available filters:
-```json
-{
-  "preferred_neighborhood": "Manhattan",
-  "activities": "Eating, Museums",
-  "dining_preferences": "Fine Dining, Rooftop",
-  "atmosphere": "Lively & Social",
-  "music_genres": "Hip-Hop, Jazz",
-  "activity_type": "Both",
-  "drinks": true,
-  "price_tier": "$$",
-  "max_price_tier": "$$",
-  "solo_friendly": true,
-  "group_friendly": true,
-  "category": "Cafe",
-  "top_n": 10
-}
-```
-
-### Get User-Specific Recommendations
-
-**GET** `/api/user/<user_id>/recommendations?top_n=10`
-
-### Get All Places
-
-**GET** `/api/places`
-
-### Get Place Details
-
-**GET** `/api/places/<place_id>`
-
-## Available Filters
-
-### Semantic Matching (influences similarity score)
-- **`preferred_neighborhood`**: String - Preferred NYC area (e.g., "Manhattan", "Brooklyn")
-- **`activities`**: String - Favorite activities (e.g., "Eating, Museums, Art")
-- **`dining_preferences`**: String - Dining style (e.g., "Fine Dining, Rooftop")
-- **`atmosphere`**: String - Vibe preference (e.g., "Lively & Social", "Quiet & Relaxed")
-- **`music_genres`**: String - Music preferences (e.g., "Hip-Hop, Jazz, R&B")
-- **`activity_type`**: String - "Solo", "Group", or "Both"
-- **`drinks`**: Boolean - Whether user drinks socially
-
-### Hard Filters (exclude non-matching places)
-- **`price_tier`**: String or Array - Specific tier(s): `"$$"` or `["$$", "$$$"]`
+- **`preferred_neighborhood`**: String - Only show places in this neighborhood (e.g., "Manhattan", "Upper East Side")
+- **`category`**: String or Array - Only show places in this category (e.g., "Cafe", "Food")
+- **`atmosphere`**: String - Only show places with matching vibe (e.g., "Upscale", "Casual", "Lively & Social")
+- **`max_price_tier`**: String - Only show places at or below this price tier
   - `$` = Under $15
   - `$$` = $15-$40
   - `$$$` = $41-$80
   - `$$$$` = Over $80
-- **`max_price_tier`**: String - Maximum price tier (includes all tiers below)
-- **`solo_friendly`**: Boolean - Only show solo-friendly places
-- **`group_friendly`**: Boolean - Only show group-friendly places
-- **`category`**: String or Array - Filter by category: `"Cafe"` or `["Cafe", "Entertainment"]`
-  - Available: Food, Museum, Cafe, Entertainment, Night Life, Bar, Gallery, Activity, Cocktail Lounge
+- **`activity_type`**: String - Filter by "Solo", "Group", or "Both"
+- **`drinks`**: Boolean - Only show places that serve alcohol
 
-## How It Works
+### Semantic Ranking (Step 2)
+Within filtered results, places are ranked by similarity to your preferences:
 
-1. **Data Processing**: Converts place attributes (type, vibe, neighborhood, etc.) into text
-2. **Embeddings**: Uses HuggingFace's `all-MiniLM-L6-v2` model to generate semantic embeddings
-3. **Similarity Matching**: Calculates cosine similarity between user preferences and place embeddings
-4. **Ranking**: Returns top-N places with highest similarity scores
+- **`activities`**: String - Activities you enjoy (e.g., "Eating, Museums, Art")
+- **`music_genres`**: String - Music preferences (e.g., "Hip-Hop, Jazz, R&B")
+
+### Technical Process
+1. **Apply Filters**: Removes all places that don't match your selected criteria
+2. **Create Embeddings**: Uses HuggingFace's `all-MiniLM-L6-v2` model to generate semantic embeddings
+3. **Calculate Similarity**: Computes cosine similarity between your preferences and remaining places
+4. **Return Results**: Shows top-N places ranked by similarity score
 
 ## Example Usage
 
@@ -175,24 +133,22 @@ recommendations = engine.get_recommendations(user_profile, top_n=10)
 ## Tech Stack
 
 - **Python 3.x**
-- **HuggingFace Transformers**: For embeddings and semantic similarity
-- **Flask**: REST API framework
+- **Gradio 4.19.2**: Interactive web interface
+- **HuggingFace sentence-transformers**: Semantic embeddings
 - **Pandas**: Data manipulation
 - **scikit-learn**: Cosine similarity calculations
+- **SQLite**: Embedded database
 
 ## Testing
 
 Run the included test scripts to verify functionality:
 
 ```bash
-# Test basic recommendation engine
-python test_recommendations.py
+# Test strict filtering behavior
+python test_strict_filters.py
 
-# Test price tier filtering
-python test_price_tiers.py
-
-# Test solo/group and category filters
-python test_new_filters.py
+# Test atmosphere filtering
+python test_atmosphere_filter.py
 ```
 
 ## Dataset
