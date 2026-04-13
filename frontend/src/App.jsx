@@ -1,69 +1,69 @@
-mport { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 
 import { loadState, saveState, addRecentlyViewed } from './storage'
 import { DEFAULT_COLLECTIONS } from './constants'
 
-import BottomNav      from './components/BottomNav'
-import HomeScreen     from './components/HomeScreen'
-import SearchScreen   from './components/SearchScreen'
-import SavedScreen    from './components/SavedScreen'
-import ProfileScreen  from './components/ProfileScreen'
-import DetailScreen   from './components/DetailScreen'
+import BottomNav from './components/BottomNav'
+import HomeScreen from './components/HomeScreen'
+import SearchScreen from './components/SearchScreen'
+import SavedScreen from './components/SavedScreen'
+import ProfileScreen from './components/ProfileScreen'
+import DetailScreen from './components/DetailScreen'
 import OnboardingFlow from './components/OnboardingFlow'
-import NewListModal   from './components/modals/NewListModal'
+import NewListModal from './components/modals/NewListModal'
 import { NotificationBanner, useNotifications } from './components/Notifications'
 
 const DEFAULT_PROFILE = {
-  name:          'Explorer',
-  vibes:         ['Hidden Gems','Rooftops','Cocktail Bars','Live Music','Girls Night','Speakeasies'],
+  name: 'Explorer',
+  vibes: ['Hidden Gems','Rooftops','Cocktail Bars','Live Music','Girls Night','Speakeasies'],
   neighborhoods: ['Lower East Side','Williamsburg','West Village'],
-  prefs:         { budget:'$$ to $$$', style:'Social but curated', music:'R&B, House, Jazz' },
+  prefs: { budget:'$$ to $$$', style:'Social but curated', music:'R&B, House, Jazz' },
 }
 
 export default function App() {
-  const [onboarded,       setOnboarded]       = useState(() => loadState('onboarded', false))
-  const [tab,             setTab]             = useState('home')
-  const [detail,          setDetail]          = useState(null)
-  const [showNewList,     setShowNewList]      = useState(false)
+  const [onboarded, setOnboarded] = useState(() => loadState('onboarded', false))
+  const [tab, setTab] = useState('home')
+  const [detail, setDetail] = useState(null)
+  const [showNewList, setShowNewList] = useState(false)
 
-  const [profile,        setProfile]        = useState(() => loadState('profile',        DEFAULT_PROFILE))
-  const [savedList,      setSaved]          = useState(() => loadState('savedList',      []))
-  const [collections,    setCollections]    = useState(() => loadState('collections',    DEFAULT_COLLECTIONS))
+  const [profile, setProfile] = useState(() => loadState('profile', DEFAULT_PROFILE))
+  const [savedList, setSaved] = useState(() => loadState('savedList', []))
+  const [collections, setCollections] = useState(() => loadState('collections', DEFAULT_COLLECTIONS))
   const [recentlyViewed, setRecentlyViewed] = useState(() => loadState('recentlyViewed', []))
-  const [visitLog,       setVisitLog]       = useState(() => loadState('visitLog',       []))
+  const [visitLog, setVisitLog] = useState(() => loadState('visitLog', []))
 
-  useEffect(() => { saveState('profile',        profile)        }, [profile])
-  useEffect(() => { saveState('savedList',      savedList)      }, [savedList])
-  useEffect(() => { saveState('collections',    collections)    }, [collections])
+  useEffect(() => { saveState('profile', profile) }, [profile])
+  useEffect(() => { saveState('savedList', savedList) }, [savedList])
+  useEffect(() => { saveState('collections', collections) }, [collections])
   useEffect(() => { saveState('recentlyViewed', recentlyViewed) }, [recentlyViewed])
-  useEffect(() => { saveState('visitLog',       visitLog)       }, [visitLog])
+  useEffect(() => { saveState('visitLog', visitLog) }, [visitLog])
 
   const { notifications, dismiss } = useNotifications(savedList, visitLog)
 
-  // ── Onboarding ─────────────────────────────────────────────────────────────
+  // ── Onboarding ────────────────────────────────────────────────────────────
   function handleOnboardingComplete(data) {
     const p = { name:data.name, vibes:data.vibes, neighborhoods:data.neighborhoods,
-                prefs:{ budget:data.budget, style:'Social but curated', music:data.music } }
+      prefs:{ budget:data.budget, style:'Social but curated', music:data.music } }
     setProfile(p)
-    saveState('profile',   p)
+    saveState('profile', p)
     saveState('onboarded', true)
     setOnboarded(true)
   }
 
-  // ── Saved ──────────────────────────────────────────────────────────────────
+  // ── Saved ─────────────────────────────────────────────────────────────────
   function toggleSave(place) {
     const name = place.Name_of_place || place.name
     setSaved(prev => {
       const exists = prev.find(p=>(p.name||p.Name_of_place)===name)
       if (exists) return prev.filter(p=>(p.name||p.Name_of_place)!==name)
       return [...prev, {
-        name:         place.Name_of_place || place.name,
-        type:         place.Type          || place.type          || '',
-        neighborhood: place.Neighborhood  || place.neighborhood  || '',
-        note:         place.Vibe_Type     || place.note          || '',
-        savedAt:      Date.now(),
-        _full:        place,
+        name: place.Name_of_place || place.name,
+        type: place.Type || place.type || '',
+        neighborhood: place.Neighborhood || place.neighborhood || '',
+        note: place.Vibe_Type || place.note || '',
+        savedAt: Date.now(),
+        _full: place,
       }]
     })
   }
@@ -75,12 +75,12 @@ export default function App() {
 
   function viewSavedDetail(item) {
     setDetail(item._full || {
-      Name_of_place:    item.name, Type:item.type,
-      Neighborhood:     item.neighborhood, Vibe_Type:item.note, similarity_score:1,
+      Name_of_place: item.name, Type:item.type,
+      Neighborhood: item.neighborhood, Vibe_Type:item.note, similarity_score:1,
     })
   }
 
-  // ── Collections ────────────────────────────────────────────────────────────
+  // ── Collections ───────────────────────────────────────────────────────────
   function handleAddToCollections({ added, newCollection, placeName }) {
     setCollections(prev => {
       let u = [...prev]
@@ -106,7 +106,7 @@ export default function App() {
     if (id==='new') { setShowNewList(true); return }
   }
 
-  // ── Navigation helpers ─────────────────────────────────────────────────────
+  // ── Navigation helpers ────────────────────────────────────────────────────
   function handleViewDetail(place) {
     setRecentlyViewed(prev => {
       const updated = addRecentlyViewed(place, prev)
@@ -150,6 +150,7 @@ export default function App() {
         <NotificationBanner notifications={notifications} onDismiss={dismiss}/>
         {tab==='home' && (
           <HomeScreen
+            profile={profile}
             onViewDetail={handleViewDetail}
             onNavigate={setTab}
             savedList={savedList}
@@ -158,8 +159,8 @@ export default function App() {
             setRecentlyViewed={setRecentlyViewed}
           />
         )}
-        {tab==='search'  && <SearchScreen onViewDetail={handleViewDetail}/>}
-        {tab==='saved'   && (
+        {tab==='search' && <SearchScreen onViewDetail={handleViewDetail}/>}
+        {tab==='saved' && (
           <SavedScreen
             savedList={savedList}
             toggleSave={toggleSave}
