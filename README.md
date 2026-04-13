@@ -129,11 +129,12 @@ user_profile = {
 
 recommendations = engine.get_recommendations(user_profile, top_n=10)
 ```
-
+## User Interface
+The UI walks users through the full discovery experience: a first-time onboarding flow gathers taste preferences, neighborhoods, and budget, then drops users into a home feed of personalized suggestions. The Search screen lets users apply strict filters to find exactly what they're looking for, while the Saved screen organizes favorites into custom collections. A Detail view surfaces place info and lets users log visits, and a Profile screen lets them update their preferences at any time. The whole app is wrapped in a phone-frame layout with a persistent bottom navigation bar.
 ## Tech Stack
 
 - **Python 3.x**
-- **Gradio 4.19.2**: Interactive web interface
+- **Docker**
 - **HuggingFace sentence-transformers**: Semantic embeddings
 - **Pandas**: Data manipulation
 - **scikit-learn**: Cosine similarity calculations
@@ -169,6 +170,5 @@ The system uses a **SQLite database** (`nyc_places.db`) containing:
 - Implement user feedback loop for better recommendations
 - Add collaborative filtering based on similar users
 - Integrate geolocation and travel time calculations
-- Build interactive frontend application
 - Deploy to cloud platform (Heroku, AWS, GCP)
 - Add more NYC locations to the database
