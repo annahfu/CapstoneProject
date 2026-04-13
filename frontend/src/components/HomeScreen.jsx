@@ -4,17 +4,17 @@ import { VIBE_CHIPS } from '../constants'
 import { addRecentlyViewed, saveState } from '../storage'
 import PlaceCard from './PlaceCard'
 
-export default function HomeScreen({ onViewDetail, onNavigate, savedList, toggleSave, recentlyViewed, setRecentlyViewed }) {
+export default function HomeScreen({ profile, onViewDetail, onNavigate, savedList, toggleSave, recentlyViewed, setRecentlyViewed }) {
   const time = useLocalTime()
-  const ctx  = getTimeContext()
+  const ctx = getTimeContext()
 
-  const [allPlaces,   setAllPlaces]   = useState([])
-  const [topRecs,     setTopRecs]     = useState([])
-  const [timedRecs,   setTimedRecs]   = useState([])
-  const [loading,     setLoading]     = useState(true)
+  const [allPlaces, setAllPlaces] = useState([])
+  const [topRecs, setTopRecs] = useState([])
+  const [timedRecs, setTimedRecs] = useState([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults,setSearchResults] = useState([])
-  const [searching,   setSearching]   = useState(false)
+  const [searching, setSearching] = useState(false)
   const searchRef = useRef(null)
 
   // Load all places once for instant search
@@ -31,7 +31,7 @@ export default function HomeScreen({ onViewDetail, onNavigate, savedList, toggle
       const cached = localStorage.getItem('nyc_cached_recs')
       if (cached) { setTopRecs(JSON.parse(cached)); setLoading(false) }
 
-      const res  = await fetch('/api/recommendations', {
+      const res = await fetch('/api/recommendations', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ activity_type:'Both', top_n:3 })
       })
@@ -46,7 +46,7 @@ export default function HomeScreen({ onViewDetail, onNavigate, savedList, toggle
 
   async function fetchTimedRecs() {
     try {
-      const res  = await fetch('/api/recommendations', {
+      const res = await fetch('/api/recommendations', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify(ctx.payload)
       })
@@ -57,7 +57,7 @@ export default function HomeScreen({ onViewDetail, onNavigate, savedList, toggle
 
   async function fetchAllPlaces() {
     try {
-      const res  = await fetch('/api/places')
+      const res = await fetch('/api/places')
       const data = await res.json()
       if (data.success) setAllPlaces(data.places)
     } catch(e) { console.error(e) }
@@ -71,9 +71,9 @@ export default function HomeScreen({ onViewDetail, onNavigate, savedList, toggle
     const results = allPlaces.filter(p =>
       (p.Name_of_place||'').toLowerCase().includes(q) ||
       (p.Neighborhood ||'').toLowerCase().includes(q) ||
-      (p.Type         ||'').toLowerCase().includes(q) ||
-      (p.Category     ||'').toLowerCase().includes(q) ||
-      (p.Vibe_Type    ||'').toLowerCase().includes(q)
+      (p.Type ||'').toLowerCase().includes(q) ||
+      (p.Category ||'').toLowerCase().includes(q) ||
+      (p.Vibe_Type ||'').toLowerCase().includes(q)
     ).slice(0, 20)
     setSearchResults(results)
   }, [searchQuery, allPlaces])
@@ -95,7 +95,7 @@ export default function HomeScreen({ onViewDetail, onNavigate, savedList, toggle
     <div className="screen-body">
       <div className="screen-header">
         <div className="status-bar"><span>{time}</span><span>Places</span></div>
-        <p className="header-sub">{getGreeting()}, Anna</p>
+        <p className="header-sub">{getGreeting()}, {profile?.name || 'there'}</p>
         <h1 className="header-title">Find your next spot</h1>
 
         {/* Live search bar */}
