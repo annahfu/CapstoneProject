@@ -2,11 +2,16 @@ import { NAV_ITEMS } from '../constants'
 
 export default function BottomNav({ active, onChange }) {
   return (
-    <div className="bottom-nav">
+    <div className="flex border-t border-gray-200 bg-white shrink-0">
       {NAV_ITEMS.map(n => (
-        <button key={n.id} className={`nav-item ${active===n.id?'nav-active':''}`} onClick={()=>onChange(n.id)}>
-          <span className="nav-icon">{n.icon}</span>
-          <span className="nav-label">{n.label}</span>
+        <button
+          key={n.id}
+          className={`flex-1 flex flex-col items-center py-3 gap-0.5 text-xs font-medium transition-colors
+            ${active === n.id ? 'text-black' : 'text-gray-400'}`}
+          onClick={() => onChange(n.id)}
+        >
+          <span className="text-xl leading-none">{n.icon}</span>
+          <span>{n.label}</span>
         </button>
       ))}
     </div>

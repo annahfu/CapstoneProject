@@ -2,52 +2,83 @@ import { useState } from 'react'
 
 export default function AddToPlanModal({ place, collections, onAddToCollections, onClose }) {
   const placeName = place.Name_of_place || place.name
-  const [added,   setAdded]   = useState(()=>collections.filter(c=>c.placeNames.includes(placeName)).map(c=>c.id))
+  const [selected, setSelected] = useState([])
   const [newName, setNewName] = useState('')
-  const [success, setSuccess] = useState('')
+  const [showNew, setShowNew] = useState(false)
 
-  function toggle(id) { setAdded(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]) }
-
-  function createList() {
-    const t = newName.trim()
-    if (!t||collections.find(c=>c.name===t)) return
-    onAddToCollections({ newCollection:t, added, placeName })
-    setNewName('')
+  function toggleCollection(id) {
+    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
-  function confirm() {
-    if (!added.length) return
-    onAddToCollections({ added, placeName })
-    const names = collections.filter(c=>added.includes(c.id)).map(c=>c.name)
-    setSuccess(`Added to ${names.join(', ')}!`)
-    setTimeout(onClose, 1500)
+  function handleSave() {
+    onAddToCollections({
+      added: selected,
+      newCollection: showNew && newName.trim() ? newName.trim() : null,
+      placeName,
+    })
+    onClose()
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
-        <div className="modal-handle"/>
-        <h3 className="modal-title">Add to plan</h3>
-        <p className="modal-sub">Choose a collection for <strong>{placeName}</strong></p>
-        {success ? <div className="success-msg">{success}</div> : (<>
-          <div className="collection-pick-list">
-            {collections.map(c=>(
-              <button key={c.id} className={`collection-pick-row ${added.includes(c.id)?'collection-pick-active':''}`} onClick={()=>toggle(c.id)}>
-                <span className="collection-pick-icon">{c.icon}</span>
-                <span className="collection-pick-name">{c.name}</span>
-                <span className="collection-pick-check">{added.includes(c.id)?'✓':''}</span>
+    <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
+      <div
+        className="w-full bg-white rounded-t-3xl p-6 shadow-2xl max-h-[80vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+        <h3 className="text-base font-bold text-gray-900 mb-1">Add to plan</h3>
+        <p className="text-xs text-gray-400 mb-4 truncate">{placeName}</p>
+        {/* Existing collections */}
+        {collections.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {collections.map(c => (
+              <button
+                key={c.id}
+                onClick={() => toggleCollection(c.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border text-sm transition-colors text-left
+                  ${selected.includes(c.id)
+                    ? 'bg-black text-white border-black'
+                    : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+              >
+                <span className="text-xl">{c.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium">{c.name}</p>
+                  <p className={`text-xs ${selected.includes(c.id) ? 'text-gray-300' : 'text-gray-400'}`}>
+                    {c.placeNames.length} {c.placeNames.length === 1 ? 'place' : 'places'}
+                  </p>
+                </div>
+                {selected.includes(c.id) && <span className="text-xs shrink-0">✓</span>}
               </button>
             ))}
           </div>
-          <div className="new-list-row">
-            <input className="new-list-input" placeholder="Create new list…" value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&createList()}/>
-            <button className="new-list-btn" onClick={createList}>+</button>
+        )}
+        {/* New collection */}
+        {showNew ? (
+          <div className="mb-4">
+            <input
+              className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm bg-gray-50 outline-none focus:border-black transition-colors"
+              placeholder="New list name"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              autoFocus
+            />
           </div>
-          <button className={`modal-confirm ${added.length===0?'modal-confirm-disabled':''}`} onClick={confirm} disabled={added.length===0}>
-            Add to {added.length>0?collections.filter(c=>added.includes(c.id)).map(c=>c.name).join(', '):'a collection'}
-          </button>
-        </>)}
-        <button className="modal-cancel" onClick={onClose}>Cancel</button>
+        ) : (
+          <button
+            className="w-full text-sm text-gray-500 border border-dashed border-gray-200 rounded-2xl py-3 hover:bg-gray-50 transition-colors mb-4"
+            onClick={() => setShowNew(true)}
+          >+ Create new list</button>
+        )}
+        <div className="flex gap-3">
+          <button
+            className="flex-1 border border-gray-200 text-sm font-medium py-3 rounded-2xl hover:bg-gray-50 transition-colors"
+            onClick={onClose}
+          >Cancel</button>
+          <button
+            className="flex-1 bg-black text-white text-sm font-semibold py-3 rounded-2xl hover:bg-gray-900 transition-colors"
+            onClick={handleSave}
+          >Save</button>
+        </div>
       </div>
     </div>
   )

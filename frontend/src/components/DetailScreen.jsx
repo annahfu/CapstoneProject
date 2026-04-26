@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useLocalTime } from '../hooks'
-import ShareModal from './modals/ShareModal'
+import ShareModal     from './modals/ShareModal'
 import AddToPlanModal from './modals/AddToPlanModal'
-import PlaceCard from './PlaceCard'
+import PlaceCard      from './PlaceCard'
 
-export default function DetailScreen({ place, onBack, onSave, saved, collections, onAddToCollections, onLogVisit, visitLog }) {
+export default function DetailScreen({
+  place, onBack, onSave, saved,
+  collections, onAddToCollections,
+  onLogVisit, visitLog, onViewDetail,
+}) {
   const time = useLocalTime()
   const [showShare, setShowShare] = useState(false)
   const [showPlan,  setShowPlan]  = useState(false)
@@ -13,156 +17,177 @@ export default function DetailScreen({ place, onBack, onSave, saved, collections
 
   if (!place) return null
 
-  const name  = place.Name_of_place || place.name
-  const score = place.similarity_score != null ? (place.similarity_score * 100).toFixed(0) : '—'
-  const visitCount = (visitLog||[]).filter(v=>v.name===name).length
+  const name       = place.Name_of_place || place.name
+  const visitCount = (visitLog || []).filter(v => v.name === name).length
+
+  // similarity_score still exists on the place object and is used
+  // by the backend for ranking — we just don't show it to users
 
   useEffect(() => { fetchSimilar() }, [name])
 
   async function fetchSimilar() {
     try {
       const res  = await fetch('/api/recommendations', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           preferred_neighborhood: place.Neighborhood || place.neighborhood,
-          atmosphere: place.Vibe_Type || undefined,
-          top_n: 4
-        })
+          atmosphere:             place.Vibe_Type    || undefined,
+          top_n:                  4,
+        }),
       })
       const data = await res.json()
       if (data.success) {
-        setSimilar(data.recommendations.filter(p => (p.Name_of_place||p.name) !== name).slice(0,3))
+        setSimilar(
+          data.recommendations
+            .filter(p => (p.Name_of_place || p.name) !== name)
+            .slice(0, 3)
+        )
       }
-    } catch(e) { console.error(e) }
+    } catch (e) { console.error(e) }
   }
 
   function handleLogVisit() {
-    onLogVisit({ name, type: place.Type||place.type, neighborhood: place.Neighborhood||place.neighborhood, loggedAt: Date.now() })
+    onLogVisit({
+      name,
+      type:         place.Type  || place.type,
+      neighborhood: place.Neighborhood || place.neighborhood,
+      loggedAt:     Date.now(),
+    })
     setVisitDone(true)
-    setTimeout(()=>setVisitDone(false), 2500)
+    setTimeout(() => setVisitDone(false), 2500)
   }
 
   function openDirections() {
-    const addr = place.Address || `${name}, ${place.Neighborhood||''}, New York City`
+    const addr = place.Address || `${name}, ${place.Neighborhood || ''}, New York City`
     window.open(`https://maps.google.com/?q=${encodeURIComponent(addr)}`, '_blank')
   }
 
-  const highlights = [
-    `${score}% match based on your preference for hidden gems and stylish places`,
-    `Best for intimate nights out, small groups, or date plans`,
-    `Popular for late evening visits and curated experiences`
-  ]
-
   return (
-    <div className="screen-body">
-      {showShare && <ShareModal place={place} onClose={()=>setShowShare(false)}/>}
-      {showPlan  && <AddToPlanModal place={place} collections={collections} onAddToCollections={onAddToCollections} onClose={()=>setShowPlan(false)}/>}
-
-      <div className="screen-header">
-        <div className="status-bar"><span>{time}</span><span>Details</span></div>
-        <div className="detail-hero">
-          <div className="detail-hero-controls">
-            <button className="icon-btn" onClick={onBack}>←</button>
-            <button className="icon-btn" onClick={()=>onSave(place)}>{saved?'❤️':'♡'}</button>
-          </div>
-          <div className="detail-hero-info">
-            <p className="detail-eyebrow">Top recommendation</p>
-            <h2 className="detail-title">{name}</h2>
-            <p className="detail-sub">{place.Neighborhood||place.neighborhood} • {place.Type||place.type}</p>
-          </div>
+    <div className="flex flex-col flex-1 overflow-hidden">
+      {showShare && <ShareModal    place={place} onClose={() => setShowShare(false)} />}
+      {showPlan  && (
+        <AddToPlanModal
+          place={place}
+          collections={collections}
+          onAddToCollections={onAddToCollections}
+          onClose={() => setShowPlan(false)}
+        />
+      )}
+      {/* ── Header ── */}
+      <div className="bg-black text-white px-5 pt-4 pb-5 shrink-0">
+        <div className="flex justify-between text-xs text-gray-400 mb-3">
+          <span>{time}</span><span>Details</span>
         </div>
+        <div className="flex justify-between items-center mb-3">
+          <button
+            className="w-9 h-9 flex items-center justify-center bg-white/10 rounded-full text-white"
+            onClick={onBack}
+          >←</button>
+          <button className="text-xl" onClick={() => onSave(place)}>
+            {saved ? '❤️' : '♡'}
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Recommendation</p>
+        <h2 className="text-xl font-bold">{name}</h2>
+        <p className="text-sm text-gray-400 mt-0.5">
+          {place.Neighborhood || place.neighborhood} • {place.Type || place.type}
+        </p>
       </div>
-
-      <div className="screen-content">
-        {/* Visit logged toast */}
-        {visitDone && <div className="success-msg" style={{padding:'0.6rem 1rem',fontSize:'0.85rem'}}>Visit logged! ✓</div>}
-
-        {/* Match section */}
-        <section className="neutral-section">
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-            <div>
-              <p className="place-neighborhood">Why it matches you</p>
-              <h3 style={{fontSize:'1.5rem',fontWeight:700,color:'#111',marginTop:'0.2rem'}}>{score}% match</h3>
-            </div>
-            <span style={{fontSize:'1.5rem'}}>✨</span>
+      {/* ── Content ── */}
+      <div className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-4">
+        {/* Visit-logged toast */}
+        {visitDone && (
+          <div className="bg-green-50 text-green-700 text-sm rounded-xl px-4 py-2">
+            Visit logged! ✓
           </div>
-          <div className="card-list" style={{marginTop:'0.75rem'}}>
-            {highlights.map(h=>(
-              <div key={h} className="highlight-row">{h}</div>
-            ))}
-          </div>
-        </section>
-
+        )}
+        {/* ── Match % and "Why it matches you" section removed ── */}
         {/* Vibe & tags */}
-        <section className="white-section">
-          <div className="section-header">
-            <h3 className="section-title">Vibe and tags</h3>
-            <button className="section-action" onClick={()=>setShowShare(true)}>Share 📤</button>
+        <section className="bg-white rounded-2xl p-4">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-sm font-semibold text-gray-900">Vibe and tags</h3>
+            <button className="text-xs text-gray-500" onClick={() => setShowShare(true)}>
+              Share 📤
+            </button>
           </div>
-          <p className="place-vibe" style={{marginBottom:'0.75rem'}}>
-            {place.Vibe_Type||place.note||'A great spot with a unique atmosphere.'}
+          <p className="text-sm text-gray-600 mb-3">
+            {place.Vibe_Type || place.note || 'A great spot with a unique atmosphere.'}
           </p>
-          <div className="tag-row">
-            {[place.Type||place.type, place.Category, place.price_tier].filter(Boolean).map(t=>(
-              <span key={t} className="dark-tag">{t}</span>
-            ))}
+          <div className="flex gap-2 flex-wrap">
+            {[place.Type || place.type, place.Category, place.price_tier]
+              .filter(Boolean)
+              .map(t => (
+                <span key={t} className="text-xs bg-black text-white px-3 py-1 rounded-full">
+                  {t}
+                </span>
+              ))}
           </div>
         </section>
-
         {/* Place details */}
-        <section className="neutral-section">
-          <div className="section-header">
-            <h3 className="section-title">Place details</h3>
-            <button className="section-action" onClick={openDirections}>🗺 Directions</button>
+        <section className="bg-white rounded-2xl p-4">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-sm font-semibold text-gray-900">Place details</h3>
+            <button className="text-xs text-gray-500" onClick={openDirections}>
+              🗺 Directions
+            </button>
           </div>
-          <div className="card-list">
+          <div className="space-y-2">
             {[
-              ['Neighborhood', place.Neighborhood||place.neighborhood],
-              ['Price',        place.price_tier||place.Price_Level||'N/A'],
-              ['Category',     place.Category||place.type],
-              ['Address',      place.Address||'—'],
-            ].map(([k,v])=>(
-              <div key={k} className="detail-info-row">
-                <span className="pref-key">{k}</span>
-                <span className="pref-val">{v}</span>
+              ['Neighborhood', place.Neighborhood || place.neighborhood],
+              ['Price',        place.price_tier   || place.Price_Level || 'N/A'],
+              ['Category',     place.Category     || place.type],
+              ['Address',      place.Address      || '—'],
+            ].map(([k, v]) => (
+              <div key={k} className="flex justify-between text-sm">
+                <span className="text-gray-400">{k}</span>
+                <span className="text-gray-800 font-medium text-right max-w-[60%]">{v}</span>
               </div>
             ))}
           </div>
         </section>
-
         {/* Visit log */}
-        <section className="white-section">
-          <div className="section-header">
-            <h3 className="section-title">Visit log</h3>
-            {visitCount > 0 && <span className="section-action">{visitCount} visit{visitCount!==1?'s':''}</span>}
+        <section className="bg-white rounded-2xl p-4">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-sm font-semibold text-gray-900">Visit log</h3>
+            {visitCount > 0 && (
+              <span className="text-xs text-gray-500">
+                {visitCount} visit{visitCount !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
-          <button className="visit-log-btn" onClick={handleLogVisit}>
+          <button
+            onClick={handleLogVisit}
+            className="w-full border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
             {visitDone ? '✓ Logged!' : '📍 I went here'}
           </button>
           {visitCount > 0 && (
-            <p style={{fontSize:'0.78rem',color:'#888',marginTop:'0.5rem'}}>
-              You've visited this place {visitCount} time{visitCount!==1?'s':''}
+            <p className="text-xs text-gray-400 mt-2">
+              You've visited this place {visitCount} time{visitCount !== 1 ? 's' : ''}
             </p>
           )}
         </section>
-
         {/* Action buttons */}
-        <div className="action-grid">
-          <button className="btn-dark" onClick={()=>setShowPlan(true)}>Add to plan</button>
-          <button className="btn-light" onClick={()=>onSave(place)}>
-            {saved?'Saved ❤️':'Save place'}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setShowPlan(true)}
+            className="bg-black text-white text-sm font-semibold py-3 rounded-xl hover:bg-gray-900 transition-colors"
+          >Add to plan</button>
+          <button
+            onClick={() => onSave(place)}
+            className="border border-gray-200 text-sm font-medium py-3 rounded-xl hover:bg-gray-50 transition-colors"
+          >
+            {saved ? 'Saved ❤️' : 'Save place'}
           </button>
         </div>
-
         {/* You might also like */}
         {similar.length > 0 && (
-          <section className="similar-section">
-            <div className="section-header">
-              <h3 className="section-title">You might also like</h3>
-            </div>
-            <div className="card-list">
-              {similar.map((p,i)=>(
-                <PlaceCard key={i} place={p} onClick={()=>onViewDetail(p)}/>
+          <section>
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">You might also like</h3>
+            <div className="space-y-2">
+              {similar.map((p, i) => (
+                <PlaceCard key={i} place={p} onClick={() => onViewDetail(p)} />
               ))}
             </div>
           </section>
