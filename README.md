@@ -2,12 +2,14 @@
 
 > An AI-powered recommendation engine that suggests NYC venues tailored to your vibe, budget, and neighborhood — backed by semantic search and a curated database of 139 locations.
 
-[![Python](https://img.shields.io/badge/Python-3.x-blue?logo=python)](https://python.org)
-[![Flask](https://img.shields.io/badge/Flask-REST%20API-lightgrey?logo=flask)](https://flask.palletsprojects.com)
-[![Gradio](https://img.shields.io/badge/Gradio-4.19.2-orange?logo=gradio)](https://gradio.app)
+[![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-REST%20API-009688?logo=fastapi)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev)
+[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-Styling-38B2AC?logo=tailwindcss)](https://tailwindcss.com)
 [![HuggingFace](https://img.shields.io/badge/HuggingFace-sentence--transformers-yellow?logo=huggingface)](https://huggingface.co)
 [![SQLite](https://img.shields.io/badge/SQLite-embedded-green?logo=sqlite)](https://sqlite.org)
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-HuggingFace%20Spaces-blue?logo=huggingface)](https://huggingface.co/spaces/ravencheneg/NYC-places-recommendation)
+[![Docker](https://img.shields.io/badge/Docker-containerized-2496ED?logo=docker)](https://docker.com)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-HuggingFace%20Spaces-blue?logo=huggingface)](https://huggingface.co/spaces/annahfu1/App)
 
 ---
 
@@ -16,9 +18,9 @@
 The NYC Places Recommendation System helps users discover restaurants, cafes, museums, nightlife spots, and more across all five boroughs. Users define their preferences — neighborhood, budget, atmosphere, activities — and the engine combines **strict filtering** with **semantic similarity ranking** powered by HuggingFace's `sentence-transformers` to surface the most relevant places.
 
 The project ships with:
-- A **Gradio web app** for interactive discovery
-- A **Flask REST API** for programmatic access
-- A **React/JS frontend** for a mobile-style UI experience
+- A **FastAPI REST backend** served via Uvicorn
+- A **React frontend** for a mobile-style UI experience
+- A **Docker** multi-stage build for deployment on HuggingFace Spaces
 
 ---
 
@@ -33,7 +35,9 @@ The project ships with:
 | 👤 Solo / Group Mode | Find places suited to your crew size |
 | 🍸 Drinks Filter | Surface only spots that serve alcohol |
 | 🗃️ 139 Curated Locations | Cafes, food, entertainment, museums, nightlife, and more |
-| 🖥️ Dual Interface | Gradio app + Flask REST API |
+| 📱 Mobile-style UI | React frontend with home, search, saved, profile, notifications, and detail screens |
+| 🔔 Notifications | In-app notification support |
+| 🐳 Dockerized Deployment | Multi-stage Docker build for HuggingFace Spaces |
 
 ---
 
@@ -42,23 +46,60 @@ The project ships with:
 ```
 CapstoneProject/
 │
-├── app.py                    # Gradio web interface (main entry point)
-├── flask_api.py              # REST API (Flask + CORS)
-├── recommendation_engine.py  # Core ML logic: filtering + semantic ranking
-├── create_database.py        # Build SQLite DB from CSV files
-├── verify_database.py        # DB integrity checks
-├── check_price_columns.py    # Data validation utility
-├── show_schema.py            # Print DB schema
+├── frontend/                         # React frontend
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── modals/
+│   │   │   ├── BottomNav.jsx
+│   │   │   ├── DetailScreen.jsx
+│   │   │   ├── HomeScreen.jsx
+│   │   │   ├── Notifications.jsx
+│   │   │   ├── OnboardingFlow.jsx
+│   │   │   ├── PlaceCard.jsx
+│   │   │   ├── ProfileScreen.jsx
+│   │   │   ├── SavedScreen.jsx
+│   │   │   └── SearchScreen.jsx
+│   │   ├── App.jsx
+│   │   ├── App.css
+│   │   ├── constants.js
+│   │   ├── hooks.js
+│   │   ├── storage.js
+│   │   ├── main.jsx
+│   │   └── index.css
+│   ├── tests/
+│   │   ├── unit/
+│   │   │   ├── BottomNav.test.jsx
+│   │   │   └── PlaceCard.test.jsx
+│   │   ├── integration/
+│   │   │   └── SearchScreen.test.jsx
+│   │   └── e2e/
+│   │       └── userJourney.cy.js
+│   ├── babel.config.js
+│   ├── jest.config.js
+│   ├── jest.setup.js
+│   ├── package.json
+│   ├── vite.config.js
+│   └── index.html
 │
-├── nyc_places.db             # SQLite database (included)
-├── requirements.txt
+├── backend/                          # Python backend
+│   ├── tests/
+│   │   ├── test_strict_filters.py
+│   │   ├── test_atmosphere_filter.py
+│   │   ├── test_gradio_params.py
+│   │   └── test_upscale_bug.py
+│   ├── database/
+│   │   ├── create_database.py
+│   │   ├── verify_database.py
+│   │   ├── check_price_columns.py
+│   │   ├── show_schema.py
+│   │   └── nyc_places.db
+│   ├── main.py
+│   ├── recommendation_engine.py
+│   └── requirements.txt
 │
-├── frontend/                 # React/JS frontend (phone-frame UI)
-│
-├── test_strict_filters.py    # Filter behavior tests
-├── test_atmosphere_filter.py # Atmosphere filter tests
-├── test_gradio_params.py     # Gradio interface tests
-└── test_upscale_bug.py       # Regression tests
+├── Dockerfile
+├── .gitignore
+└── README.md
 ```
 
 ---
@@ -138,18 +179,29 @@ API runs at [http://127.0.0.1:5000](http://127.0.0.1:5000).
 ## 🌐 Live Demo
 
 Try the deployed app on HuggingFace Spaces:
-👉 **[NYC Places Recommendation](https://huggingface.co/spaces/ravencheneg/NYC-places-recommendation)**
+👉 **[NYC Places Recommendation App](https://huggingface.co/spaces/annahfu1/App)**
 
 ---
 
 ## 🔌 API Reference
 
-Base URL: `http://localhost:5000`
+Base URL: `http://localhost:7860`
 
+### `GET /api/health`
+
+Health check endpoint.
+
+**Response:**
+```json
+{
+  "status": "online",
+  "message": "NYC Places Recommendation API",
+  "version": "1.0.0"
+}
+```
 ### `POST /api/recommendations`
 
 Get recommendations based on user preferences.
-
 **Request Body:**
 ```json
 {
@@ -182,11 +234,6 @@ Fetch recommendations for a stored user profile.
 
 Return all 139 places in the database (name, type, category, neighborhood, vibe, price level).
 
-### `GET /api/places/<place_id>`
-
-Return full details for a specific place.
-
----
 
 ## 💡 Usage Examples
 
@@ -255,19 +302,37 @@ CSV source files (`Users.csv`, `Places.csv`) are included for reference.
 
 ## 🧪 Testing
 
+### Backend Tests
+
 ```bash
-# Test strict filter logic
-python test_strict_filters.py
-
-# Test atmosphere filtering
-python test_atmosphere_filter.py
-
-# Test Gradio interface parameters
-python test_gradio_params.py
-
-# Test regression: upscale bug fix
-python test_upscale_bug.py
+cd backend
+python tests/test_strict_filters.py      # Test strict filter logic
+python tests/test_atmosphere_filter.py   # Test atmosphere filtering
+python tests/test_gradio_params.py       # Test interface parameters
+python tests/test_upscale_bug.py         # Test regression: upscale bug fix
 ```
+
+### Frontend Tests
+
+```bash
+cd frontend
+
+# Run unit & integration tests
+npm test
+
+# Run with coverage report
+npm run test:coverage
+
+# Run end-to-end tests (start the app first)
+npm run dev           # Terminal 1
+npm run cypress:open  # Terminal 2
+```
+
+| Test Type | Files | What's Covered |
+|---|---|---|
+| Unit | `BottomNav.test.jsx`, `PlaceCard.test.jsx` | Individual component rendering and interactions |
+| Integration | `SearchScreen.test.jsx` | Filters, API calls, results rendering |
+| End-to-End | `userJourney.cy.js` | Full user flow from navigation to place detail |
 
 ---
 
@@ -288,20 +353,20 @@ python test_upscale_bug.py
 
 ## 🔮 Future Enhancements
 
-- [ ] User feedback loop to improve recommendations over time
-- [ ] Collaborative filtering based on similar user profiles
 - [ ] Geolocation integration and travel-time-aware suggestions
 - [ ] Cloud deployment (AWS / GCP / Heroku)
 - [ ] Expand dataset beyond 139 locations
-- [ ] User accounts and saved favorites
 
 ---
 
 ## 👤 Author
 
-**Raven Cheng**  
+**Raven Glenn**
 GitHub: [@ravencheneg](https://github.com/ravencheneg)
+
+**Anna Fu**
+GitHub: [@annahfu](https://github.com/annahfu)
 
 ---
 
-*Built as a Capstone Project — NYC, 2024*
+*Built as a Capstone Project — NYC, 2026*
