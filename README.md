@@ -130,49 +130,28 @@ User Input → Apply Filters → Generate Embeddings → Cosine Similarity → T
 
 ---
 
-## 🚀 Getting Started
+### 🗺️ How to Use the App
 
-### Prerequisites
+**1. Onboarding**
+When you first open the app, you'll be guided through a quick onboarding flow to set up your preferences.
 
-- Python 3.8+
-- pip
+**2. Search for Places**
+Head to the **Search** tab and use the filters to find places that match your vibe:
+- 🏙️ **City & Neighborhood** — narrow down by borough or specific area
+- 🌆 **Atmosphere** — choose from Casual, Upscale, Lively, Quiet, and more
+- 💰 **Max Price** — set your budget from `$` to `$$$$`
+- 🎭 **Activity Type** — filter for Solo or Group outings
+- 🎵 **Music & Activities** — type in free-text preferences like "Jazz, Hip-Hop" or "Dancing, Museums"
+Hit **🔍 Get Recommendations** to see your personalized results ranked by how well they match your preferences.
 
-### 1. Clone the Repository
+**3. Explore a Place**
+Click on any place card to see full details — type, neighborhood, vibe, and price tier.
 
-```bash
-git clone https://github.com/ravencheneg/CapstoneProject.git
-cd CapstoneProject
-```
+**4. Save Your Favorites**
+Found a spot you love? Save it and come back to it anytime in the **Saved** tab.
 
-### 2. Set Up a Virtual Environment
-
-```bash
-python -m venv venv
-source venv/bin/activate       # macOS/Linux
-venv\Scripts\activate          # Windows
-```
-
-### 3. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Run the App
-
-**Gradio Interface** (recommended):
-```bash
-python app.py
-```
-Then open [http://127.0.0.1:7860](http://127.0.0.1:7860) in your browser.
-
-**Flask REST API**:
-```bash
-python flask_api.py
-```
-API runs at [http://127.0.0.1:5000](http://127.0.0.1:5000).
-
-> 💡 The SQLite database (`nyc_places.db`) is included — no extra setup needed. To rebuild from scratch, run `python create_database.py`.
+**5. Manage Your Profile**
+Visit the **Profile** tab to view and update your preferences.
 
 ---
 
